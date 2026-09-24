@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>宏作用域镜 · Macroscope</title>
+<link rel="stylesheet" href="/static/app.css"/>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">⟨/⟩</span>
+    <div>
+      <h1>宏作用域镜</h1>
+      <small>语法对象 · 卫生重命名 · 来源展开图（本地优先 / 离线）</small>
+    </div>
+  </div>
+  <div class="top-actions">
+    <select id="projectSelect" title="选择项目"></select>
+    <button id="btnNew" class="ghost">新建项目</button>
+    <button id="btnSeed" class="primary">载入离线案例包</button>
+    <button id="btnReplay" class="ghost">逐步重放</button>
+    <button id="btnExport" class="ghost">导出</button>
+    <label class="ghost filebtn">导入<input id="fileImport" type="file" accept="application/json" hidden/></label>
+    <button id="btnWipe" class="danger">删除本地库</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- LEFT: source + versions + import -->
+  <section class="col col-source">
+    <div class="panel">
+      <div class="panel-h"><h2>① 源输入（不可变版本）</h2>
+        <div class="muted" id="sourceMeta"></div>
+      </div>
+      <div class="row gap">
+        <input id="newLabel" class="grow" value="input.scm" placeholder="文件名"/>
+        <button id="btnSubmit" class="primary small">提交新版本</button>
+        <button id="btnSample" class="ghost small">填入样例</button>
+      </div>
+      <textarea id="sourceText" spellcheck="false"
+        placeholder="粘贴可复制的小型样例，例如 (define-syntax m ...)"></textarea>
+      <div id="sourceTokens" class="tokens"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>版本谱系</h2></div>
+      <div id="versionList" class="versionlist"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>② 计算（候选/参数指纹）</h2></div>
+      <div class="row gap wrap">
+        <label>宏预算 <input id="budgetValue" type="number" value="64" min="1" style="width:80px"/></label>
+        <label>seed <input id="seedValue" type="number" value="20260925" style="width:120px"/></label>
+        <button id="btnCompute" class="primary small">展开选中版本</button>
+      </div>
+      <div id="runSummary" class="summary"></div>
+    </div>
+  </section>
+
+  <!-- CENTER: linked views -->
+  <section class="col col-center">
+    <div class="panel tabs">
+      <nav class="tabbar">
+        <button data-tab="tree" class="tab active">展开树</button>
+        <button data-tab="scopes" class="tab">scope 集</button>
+        <button data-tab="bindings" class="tab">binding 边</button>
+        <button data-tab="map" class="tab">来源映射</button>
+        <button data-tab="steps" class="tab">转换步骤 / 宏调用栈</button>
+      </nav>
+      <div class="tabbody">
+        <div id="tab-tree" class="tabpane active">
+          <div class="legend">
+            <span><i class="dot introduced"></i>引入</span>
+            <span><i class="dot capture"></i>显式捕获</span>
+            <span><i class="dot ambiguous"></i>歧义/未知</span>
+            <span><i class="dot budget"></i>预算/失败</span>
+            <span><i class="dot free"></i>自由标识符</span>
+          </div>
+          <div id="treeView" class="tree"></div>
+        </div>
+        <div id="tab-scopes" class="tabpane"><div id="scopeView"></div></div>
+        <div id="tab-bindings" class="tabpane"><div id="bindingView"></div></div>
+        <div id="tab-map" class="tabpane"><div id="mapView"></div></div>
+        <div id="tab-steps" class="tabpane"><div id="stepsView"></div></div>
+      </div>
+    </div>
+
+    <div class="panel svgpanel">
+      <div class="panel-h"><h2>③ 展开图（SVG，节点可点）</h2>
+        <div class="muted" id="graphHint">点击节点联动源代码 / scope / 来源</div>
+      </div>
+      <div id="graphView" class="graph"></div>
+    </div>
+  </section>
+
+  <!-- RIGHT: inspector + decisions + compare + history -->
+  <section class="col col-right">
+    <div class="panel">
+      <div class="panel-h"><h2>节点检查器（稳定身份）</h2></div>
+      <pre id="inspector" class="inspector">未选中节点</pre>
+      <div class="row gap">
+        <button class="small accept" data-verdict="accept">接受</button>
+        <button class="small reject" data-verdict="reject">否定</button>
+        <button class="small adjust" data-verdict="adjust">调参</button>
+      </div>
+      <input id="decisionNote" class="grow" placeholder="裁定说明（写入历史）"/>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>④ 比较两个宏版本</h2></div>
+      <div class="row gap">
+        <select id="cmpA" class="grow"></select>
+        <select id="cmpB" class="grow"></select>
+      </div>
+      <button id="btnCompare" class="primary small">比较读回档案</button>
+      <pre id="compareView" class="inspector smallp"></pre>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>反例档案（采纳/未采纳）</h2></div>
+      <div id="archiveView" class="archive"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>⑤ 历史 / 冲突 / 撤销</h2>
+        <button id="btnUndo" class="ghost small">撤销最近裁定</button>
+      </div>
+      <div id="historyView" class="history"></div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
