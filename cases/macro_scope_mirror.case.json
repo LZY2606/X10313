@@ -1,0 +1,125 @@
+{
+  "format": "gsb-case/1",
+  "title": "宏作用域镜：语法对象、卫生重命名与来源展开图",
+  "coordinate_basis": {
+    "span": "char offset (0-based) + line/col (1-based)",
+    "budget": "macro expansion steps",
+    "scope": "fresh integer scope id, ordered by allocation"
+  },
+  "sources": {
+    "v1": ";; 宏作用域镜：语法对象、卫生重命名与来源展开图\n;; 初始版本 v1 —— 原 token / source span / scope set / definition 与 use site 均保留\n(define helper 100)\n(define x 1)\n(define y 2)\n(define flag #t)\n(define ready #f)\n(define a 1)\n(define b 1)\n(define c 1)\n\n;; [生成临时名] 模板内 let 绑定 tmp，带 fresh per-use scope\n(defmacro swap! (a b)\n  (let ((tmp $a))\n    (set! $a $b)\n    (set! $b tmp)))\n\n;; [definition-site 引用] 宏内 helper 必须解析到定义点的顶层 helper\n(defmacro inc-helper ()\n  (+ helper 1))\n\n;; [显式捕获] datum->syntax 让新绑定取得实参的词法上下文\n(defmacro aif (test then)\n  ((lambda ((datum->syntax $test it)) $then) $test))\n\n;; [嵌套宏] unless 内部再触发别的宏\n(defmacro unless (c b)\n  (if (not $c) $b))\n\n;; [显式 gensym 临时名]\n(defmacro with-tmp (v b)\n  (let (((gensym t) $v)) $b))\n\n;; [递归宏] 多子句 + rest 拼接，受展开预算约束\n(defmacro and*\n  (() #t)\n  ((x) $x)\n  ((x y . rest)\n   (let ((t $x)) (if t (and* $rest) t))))\n\n;; [错误来源回映] total-sum 在定义点就未定义\n(defmacro bad-ref ()\n  (+ total-sum 1))\n\n;; [同名局部变量] 用户的 tmp 与 swap! 内部 tmp 不得互相捕获\n(let ((tmp 5))\n  (swap! x y)\n  (+ tmp 0))\n\n;; [definition-site 引用检验] 局部 helper 999 不应泄漏进宏\n(let ((helper 999))\n  (inc-helper))\n\n;; [显式捕获检验] then 分支的 it 解析到 aif 引入的绑定\n(let ((it 42))\n  (aif flag it))\n\n;; [嵌套宏 + 生成临时名]\n(unless ready (with-tmp x (+ y 1)))\n\n;; [递归宏检验]\n(and* a b c)\n\n;; [错误来源回映检验]\n(bad-ref)\n",
+    "v2_local_change": ";; 宏作用域镜：语法对象、卫生重命名与来源展开图\n;; 初始版本 v1 —— 原 token / source span / scope set / definition 与 use site 均保留\n(define helper 100)\n(define x 1)\n(define y 2)\n(define flag #t)\n(define ready #f)\n(define a 1)\n(define b 1)\n(define c 1)\n\n;; [生成临时名] 模板内 let 绑定 tmp，带 fresh per-use scope\n(defmacro swap! (a b)\n  (let ((tmp $a))\n    (set! $a $b)\n    (set! $b tmp)))\n\n;; [definition-site 引用] 宏内 helper 必须解析到定义点的顶层 helper\n(defmacro inc-helper ()\n  (+ helper 1))\n\n;; [显式捕获] datum->syntax 让新绑定取得实参的词法上下文\n(defmacro aif (test then)\n  ((lambda ((datum->syntax $test it)) $then) $test))\n\n;; [嵌套宏] unless 内部再触发别的宏\n(defmacro unless (c b)\n  (if (not $c) $b))\n\n;; [显式 gensym 临时名]\n(defmacro with-tmp (v b)\n  (let (((gensym t) $v)) $b))\n\n;; [递归宏] 多子句 + rest 拼接，受展开预算约束\n(defmacro and*\n  (() #t)\n  ((x) $x)\n  ((x y . rest)\n   (let ((t $x)) (if t (and* $rest) t))))\n\n;; [错误来源回映] total-sum 在定义点就未定义\n(defmacro bad-ref ()\n  (+ total-sum 1))\n\n;; [同名局部变量] 用户的 tmp 与 swap! 内部 tmp 不得互相捕获\n(let ((tmp2 5))\n  (swap! x y)\n  (+ tmp2 0))\n\n;; [definition-site 引用检验] 局部 helper 999 不应泄漏进宏\n(let ((helper 999))\n  (inc-helper))\n\n;; [显式捕获检验] then 分支的 it 解析到 aif 引入的绑定\n(let ((it 42))\n  (aif flag it))\n\n;; [嵌套宏 + 生成临时名]\n(unless ready (with-tmp x (+ y 1)))\n\n;; [递归宏检验]\n(and* a b c)\n\n;; [错误来源回映检验]\n(bad-ref)\n",
+    "macro_v2_aif_gensym": ";; 宏作用域镜：语法对象、卫生重命名与来源展开图\n;; 初始版本 v1 —— 原 token / source span / scope set / definition 与 use site 均保留\n(define helper 100)\n(define x 1)\n(define y 2)\n(define flag #t)\n(define ready #f)\n(define a 1)\n(define b 1)\n(define c 1)\n\n;; [生成临时名] 模板内 let 绑定 tmp，带 fresh per-use scope\n(defmacro swap! (a b)\n  (let ((tmp $a))\n    (set! $a $b)\n    (set! $b tmp)))\n\n;; [definition-site 引用] 宏内 helper 必须解析到定义点的顶层 helper\n(defmacro inc-helper ()\n  (+ helper 1))\n\n;; [显式捕获] datum->syntax 让新绑定取得实参的词法上下文\n(defmacro aif (test then)\n  ((lambda ((gensym it)) $then) $test))\n\n;; [嵌套宏] unless 内部再触发别的宏\n(defmacro unless (c b)\n  (if (not $c) $b))\n\n;; [显式 gensym 临时名]\n(defmacro with-tmp (v b)\n  (let (((gensym t) $v)) $b))\n\n;; [递归宏] 多子句 + rest 拼接，受展开预算约束\n(defmacro and*\n  (() #t)\n  ((x) $x)\n  ((x y . rest)\n   (let ((t $x)) (if t (and* $rest) t))))\n\n;; [错误来源回映] total-sum 在定义点就未定义\n(defmacro bad-ref ()\n  (+ total-sum 1))\n\n;; [同名局部变量] 用户的 tmp 与 swap! 内部 tmp 不得互相捕获\n(let ((tmp 5))\n  (swap! x y)\n  (+ tmp 0))\n\n;; [definition-site 引用检验] 局部 helper 999 不应泄漏进宏\n(let ((helper 999))\n  (inc-helper))\n\n;; [显式捕获检验] then 分支的 it 解析到 aif 引入的绑定\n(let ((it 42))\n  (aif flag it))\n\n;; [嵌套宏 + 生成临时名]\n(unless ready (with-tmp x (+ y 1)))\n\n;; [递归宏检验]\n(and* a b c)\n\n;; [错误来源回映检验]\n(bad-ref)\n",
+    "budget_probe": "(define a 1)\n(define b 1)\n(define c 1)\n(define d 1)\n(define e 1)\n(define f 1)\n(define g 1)\n(define h 1)\n(defmacro and*\n  (() #t)\n  ((x) $x)\n  ((x y . rest)\n   (let ((t $x)) (if t (and* $rest) t))))\n(and* a b c d e f g h)\n"
+  },
+  "params": {
+    "initial_budget": 128,
+    "revised_budget": 5,
+    "algo_version": "macrocore/1.0.0"
+  },
+  "raw_tokens": [
+    {
+      "text": "swap!",
+      "raw_span": {
+        "value": 14,
+        "unit": "line",
+        "basis": "1-based-line"
+      }
+    },
+    {
+      "text": "inc-helper",
+      "raw_span": {
+        "value": "17:11",
+        "unit": "line:col"
+      }
+    },
+    {
+      "text": "ghost-binding",
+      "raw_span": {
+        "value": "near the tmp let",
+        "unit": "prose-note"
+      }
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "same-name-local",
+      "name": "同名局部变量",
+      "observe": "tmp 引用解析到用户 let 绑定；swap! 内 tmp 是另一个绑定"
+    },
+    {
+      "id": "nested-macro",
+      "name": "嵌套宏",
+      "observe": "unless 步骤的 parent 栈包含 with-tmp 子步骤"
+    },
+    {
+      "id": "definition-site",
+      "name": "definition-site 引用",
+      "observe": "inc-helper 内 helper 解析到顶层 define，而非局部 999"
+    },
+    {
+      "id": "explicit-capture",
+      "name": "显式捕获",
+      "observe": "aif 中 it 经 datum->syntax 解析到宏引入绑定，候选含用户 it"
+    },
+    {
+      "id": "recursive-macro",
+      "name": "递归宏",
+      "observe": "and* 多步展开；预算耗尽时 status=failed 且保留部分步骤图"
+    },
+    {
+      "id": "gensym-temp",
+      "name": "生成临时名",
+      "observe": "t#gN 名字唯一且独占 scope，with-tmp 不捕获任何局部变量"
+    },
+    {
+      "id": "error-source-map",
+      "name": "错误来源回映",
+      "observe": "total-sum 诊断同时给出 defmacro 定义点与 (bad-ref) 使用点 span"
+    }
+  ],
+  "replay": [
+    {
+      "stage": "import",
+      "label": "初始导入：原始 token 与 raw span 原样保存"
+    },
+    {
+      "stage": "normalize",
+      "label": "派生层：raw span 规范化，无法转换项留诊断"
+    },
+    {
+      "stage": "expand",
+      "label": "展开 v1，生成候选/binding 边/步骤图"
+    },
+    {
+      "stage": "params",
+      "label": "参数修订：预算降到 5 步"
+    },
+    {
+      "stage": "expand-budget",
+      "label": "小预算重放探针：部分展开图 + budget-exceeded"
+    },
+    {
+      "stage": "expand-macro-v2",
+      "label": "宏版本 v2（aif gensym）展开，供版本比较"
+    },
+    {
+      "stage": "source-revise",
+      "label": "只改局部依赖：tmp→tmp2，旧结果过期但仍可查看"
+    },
+    {
+      "stage": "decide-accept",
+      "label": "人工裁定：接受 aif 捕获边",
+      "verdict": "accept"
+    },
+    {
+      "stage": "decide-reject",
+      "label": "冲突裁定：同一候选被否定",
+      "verdict": "reject"
+    },
+    {
+      "stage": "resolve-conflict",
+      "label": "冲突解决：撤销 reject，accept 保持有效"
+    }
+  ]
+}
