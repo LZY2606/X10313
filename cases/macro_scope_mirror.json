@@ -1,0 +1,140 @@
+{
+  "format": "macro-scope-mirror/case/v1",
+  "pack_id": "macro-scope-mirror",
+  "title": "宏作用域镜：语法对象、卫生重命名与来源展开图",
+  "narrative": "编译器工具组导入一门小语言的 token、词法作用域和宏定义，展开 syntax object 并解释每个标识符绑定。初始导入完整保留原 token、source span、scope set、definition/use site、宏调用栈、生成符号和转换步骤；随后安排一次参数修订（展开预算 8→3）、一次只影响局部依赖的源数据改动（same-name-local 中 tmp→tmp2）和一次互相冲突的人工决定（explicit-capture 的 it 绑定接受/否定），最后撤销解决以验证历史不被覆盖。第二分支 scope-mirror 专门检验：捕获由 scope 关系判定而非字符串改名、datum->syntax 上下文选择可见、递归展开预算失败保留部分展开图、无法唯一决定时保留全部合法候选。",
+  "coordinate_basis": "utf8-offset/1-based-line-col",
+  "units": {
+    "budget": "count (expansion steps)",
+    "span.start/end": "utf8-offset",
+    "span.line/col": "1-based line/col",
+    "scope_set": "set of scope identities (unitless)"
+  },
+  "fragments": {
+    "same-name-local": {
+      "title": "同名局部变量：宏引入的 tmp 不得捕获用户的 tmp",
+      "acceptance": "same-name-local",
+      "source": "(defmacro with-tmp (v b) (let ((tmp v)) b))\n(let ((tmp 5)) (with-tmp 1 tmp))\n"
+    },
+    "nested-macro": {
+      "title": "嵌套宏：unless2 展开为 unless 再展开为 if，调用栈保留",
+      "acceptance": "nested-macro",
+      "source": "(defmacro unless (c a b) (if c b a))\n(defmacro unless2 (c a b) (unless c a b))\n(unless2 #t 1 2)\n"
+    },
+    "definition-site": {
+      "title": "definition-site 引用：模板中的 helper 解析到宏定义处全局绑定",
+      "acceptance": "definition-site-reference",
+      "source": "(def helper 41)\n(defmacro use-helper (x) (if x helper 0))\n(let ((helper 99)) (use-helper helper))\n"
+    },
+    "explicit-capture": {
+      "title": "显式捕获：datum->syntax 选择参数 c 的上下文，使 it 被宏绑定捕获",
+      "acceptance": "explicit-capture",
+      "source": "(defmacro aif (c body) (let (((datum->syntax c (quote it)) c)) body))\n(aif 40 it)\n"
+    },
+    "hygiene-no-capture": {
+      "title": "卫生屏障：同名 it 未用 datum->syntax 时不发生捕获（scope 判定而非改名）",
+      "acceptance": "explicit-capture-negative",
+      "source": "(defmacro aifh (c body) (let ((it c)) body))\n(aifh 40 it)\n"
+    },
+    "recursive-macro": {
+      "title": "递归宏：blowup 自展开，预算耗尽时保留部分展开图",
+      "acceptance": "recursive-macro",
+      "params": {"budget": 5},
+      "source": "(defmacro blowup (x) (blowup x))\n(blowup 1)\n"
+    },
+    "generated-temp-names": {
+      "title": "生成临时名：两次 gensym 产生不同身份，且不捕获用户 tmp",
+      "acceptance": "generated-temp-names",
+      "source": "(defmacro with-tmp (v b) (let (((gensym \"tmp\") v)) b))\n(with-tmp 1 (with-tmp 2 tmp))\n"
+    },
+    "error-source-remap": {
+      "title": "错误来源回映：未绑定标识符诊断映射回原 token 与宏定义处",
+      "acceptance": "error-source-remap",
+      "source": "(defmacro unless (c a b) (if c b a))\n(defmacro broken (x) (if x missing-fn 0))\n(unless #t (frobnicate 1) 2)\n(broken #t)\n"
+    },
+    "ambiguous-candidates": {
+      "title": "无法唯一决定：同一 let 引入两个 x，保留全部合法候选",
+      "acceptance": "ambiguous-candidates",
+      "source": "(let ((x 1) (x 2)) x)\n"
+    },
+    "quantities-probe": {
+      "title": "量纲探针：原始表示保留，派生层规范化，无法转换的值留原位附诊断",
+      "acceptance": "quantity-normalization",
+      "envelope": {
+        "source": "(def q 1)\n",
+        "quantities": {
+          "expansion_budget": "8 steps",
+          "latency_probe": "250 ms",
+          "unconvertible_probe": "many"
+        }
+      }
+    }
+  },
+  "scenario": [
+    {"op": "import", "fragment": "same-name-local", "label": "v1 同名局部变量"},
+    {"op": "import", "fragment": "nested-macro", "label": "v1 嵌套宏"},
+    {"op": "import", "fragment": "definition-site", "label": "v1 definition-site 引用"},
+    {"op": "import", "fragment": "explicit-capture", "label": "v1 显式捕获"},
+    {"op": "import", "fragment": "recursive-macro", "label": "v1 递归宏", "params": {"budget": 5}},
+    {"op": "import", "fragment": "generated-temp-names", "label": "v1 生成临时名"},
+    {"op": "import", "fragment": "error-source-remap", "label": "v1 错误来源回映"},
+    {"op": "import", "fragment": "quantities-probe", "label": "v1 量纲探针"},
+    {"op": "check", "id": "baseline-preserved"},
+    {"op": "check", "id": "same-name-local-hygiene"},
+    {"op": "check", "id": "nested-macro-stack"},
+    {"op": "check", "id": "definition-site-binding"},
+    {"op": "check", "id": "explicit-capture-datum"},
+    {"op": "check", "id": "recursive-budget-partial"},
+    {"op": "check", "id": "gensym-distinct"},
+    {"op": "check", "id": "error-remap"},
+    {"op": "check", "id": "quantity-normalization"},
+    {"op": "revise-params", "fragment": "recursive-macro", "label": "v2 参数修订 budget 5→3", "params": {"budget": 3}},
+    {"op": "check", "id": "param-revision-stales"},
+    {"op": "revise-source", "fragment": "same-name-local", "label": "v2 局部源改动 tmp→tmp2",
+     "source": "(defmacro with-tmp (v b) (let ((tmp v)) b))\n(let ((tmp2 5)) (with-tmp 1 tmp2))\n"},
+    {"op": "check", "id": "local-change-scoped-stale"},
+    {"op": "decide", "fragment": "explicit-capture", "edge_name": "it", "verdict": "accept",
+     "reviewer": "reviewer-A", "rationale": "datum->syntax 上下文选择可见且有意为之"},
+    {"op": "decide", "fragment": "explicit-capture", "edge_name": "it", "verdict": "reject",
+     "reviewer": "reviewer-B", "rationale": "担心显式捕获掩盖用户绑定"},
+    {"op": "check", "id": "conflict-recorded"},
+    {"op": "resolve", "fragment": "explicit-capture", "edge_name": "it", "verdict": "accept",
+     "reviewer": "reviewer-lead", "rationale": "datum->syntax 是显式上下文选择，判定为合法捕获"},
+    {"op": "undo-resolution", "fragment": "explicit-capture", "reviewer": "reviewer-lead",
+     "note": "复核时撤销解决，恢复冲突可见"},
+    {"op": "check", "id": "undo-restores-conflict"},
+    {"op": "import", "fragment": "hygiene-no-capture", "label": "B 支 卫生屏障"},
+    {"op": "import", "fragment": "ambiguous-candidates", "label": "B 支 歧义候选"},
+    {"op": "check", "id": "capture-by-scope-not-rename"},
+    {"op": "check", "id": "ambiguous-kept"},
+    {"op": "check", "id": "history-view-stable"}
+  ],
+  "checks": {
+    "baseline-preserved": {"kind": "baseline-preserved"},
+    "same-name-local-hygiene": {"kind": "edge", "fragment": "same-name-local", "name": "tmp",
+      "expect_status": "resolved", "expect_binding_kind": "let", "expect_binding_step": 0,
+      "expect_invisible_candidate": true},
+    "nested-macro-stack": {"kind": "nested-stack", "fragment": "nested-macro",
+      "expect_macros": ["unless2", "unless"]},
+    "definition-site-binding": {"kind": "definition-site", "fragment": "definition-site",
+      "name": "helper"},
+    "explicit-capture-datum": {"kind": "explicit-capture", "fragment": "explicit-capture",
+      "name": "it"},
+    "recursive-budget-partial": {"kind": "budget-partial", "fragment": "recursive-macro",
+      "expect_steps": 5},
+    "gensym-distinct": {"kind": "gensym-distinct", "fragment": "generated-temp-names",
+      "expect_count": 2},
+    "error-remap": {"kind": "error-remap", "fragment": "error-source-remap"},
+    "quantity-normalization": {"kind": "quantity-normalization", "fragment": "quantities-probe"},
+    "param-revision-stales": {"kind": "param-revision-stales", "fragment": "recursive-macro"},
+    "local-change-scoped-stale": {"kind": "local-change-scoped-stale",
+      "fragment": "same-name-local", "unaffected": ["nested-macro", "definition-site"]},
+    "conflict-recorded": {"kind": "conflict-state", "expect": "conflict"},
+    "undo-restores-conflict": {"kind": "conflict-state", "expect": "conflict"},
+    "capture-by-scope-not-rename": {"kind": "capture-by-scope", "fragment": "hygiene-no-capture",
+      "name": "it"},
+    "ambiguous-kept": {"kind": "ambiguous-kept", "fragment": "ambiguous-candidates",
+      "name": "x", "expect_count": 2},
+    "history-view-stable": {"kind": "history-view-stable"}
+  }
+}
